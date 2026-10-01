@@ -7,6 +7,9 @@ export const kinds = [
   "briefing",
   "message",
   "settings",
+  "chief",
+  "draft",
+  "chief_request",
 ] as const;
 export type Kind = (typeof kinds)[number];
 export type Item = {
@@ -71,6 +74,7 @@ export const schemas = {
     date,
     content: z.string().max(30000),
     engine: z.string().max(80).default("Workspace synthesis"),
+    chiefVersion: z.number().int().default(0),
   }),
   message: z.object({
     ...base,
@@ -79,6 +83,33 @@ export const schemas = {
     ts: z.string().max(80),
     text: z.string().max(16000),
     externalId: z.string().max(240),
+  }),
+  chief: z.object({
+    title: z.string().default("Chief desk"),
+    answers: z.array(z.string().max(4000)).length(16),
+    reviewed: z.boolean().default(false),
+    reviewedAt: z.string().default(""),
+    firstBriefApproved: z.boolean().default(false),
+    specialistApproval: z.boolean().default(false),
+    morningApproved: z.boolean().default(false),
+  }),
+  draft: z.object({
+    ...base,
+    body: z.string().min(1).max(24000),
+    channel: z
+      .enum(["Email", "Slack", "Document", "Other"])
+      .default("Document"),
+    recipient: z.string().max(240).default("UNKNOWN"),
+    status: z.enum(["Draft", "Approved", "Rejected"]).default("Draft"),
+    approvedAt: z.string().default(""),
+    requestId: z.string().default(""),
+  }),
+  chief_request: z.object({
+    ...base,
+    question: z.string().min(1).max(4000),
+    answer: z.string().max(24000),
+    lane: z.enum(["Chief", "Scout", "Quill"]).default("Chief"),
+    status: z.enum(["Answered", "Needs context"]).default("Answered"),
   }),
   settings: z.object({
     name: z.string().trim().min(1).max(80),

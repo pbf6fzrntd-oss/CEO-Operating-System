@@ -9,10 +9,10 @@ A working single-owner executive workspace with a midnight interface, brass acce
 - **OpenLoops:** track what people owe you, owners, dates, channels, received status, and editable follow-up drafts. Messages are never automatically sent.
 - **Calendar:** daily/seven-day views, timezone-aware meetings, ICS import/export, and Google read-only sync.
 - **Meeting room:** context, agendas, participants, preparation briefs, outcome notes, action-item creation, and Markdown downloads.
-- **Daily briefings:** a persisted brief on the first workspace opening each day. Same-day regeneration updates the existing entry. Without Grok, clearly labeled workspace synthesis uses saved records. With Grok, selected records are sent to xAI.
+- **Daily briefings:** a persisted brief on the first workspace opening each day. Same-day regeneration updates the existing entry. Without an OpenAI API connection, clearly labeled workspace synthesis uses saved records. With OpenAI GPT, selected records are sent to OpenAI.
 - **Decisions:** options, reasoning, status, and review dates.
 - **Slack:** read selected channel history and turn messages into tasks or OpenLoops.
-- **Chief of staff:** workspace snapshot without credentials; tailored answers with Grok.
+- **Chief of staff:** workspace snapshot without credentials; tailored answers with OpenAI GPT.
 - **Agent bridge:** validated JSON imports for Instinct/Silvia output with external IDs for deduplication.
 - **Settings:** profile, timezone, north star, export/import, and sample cleanup.
 - **Search:** Cmd/Ctrl+K across all records.
@@ -23,7 +23,7 @@ A working single-owner executive workspace with a midnight interface, brass acce
 | --------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | Google Calendar | Reads next 14 days, paginates, preserves meeting briefs/outcomes, reconciles removed events after successful sync | OAuth client ID, secret, refresh token with calendar.events.readonly; optional calendar ID |
 | Slack           | Reads up to 50 recent messages per channel, up to ten channels; deduplicates timestamps                           | Bot token, channel IDs, history scopes and membership                                      |
-| Grok            | Workspace questions, meeting prep, briefings through xAI chat completions                                         | xAI key and account-supported model identifier                                             |
+| OpenAI GPT      | Workspace questions, meeting prep, briefings through OpenAI Responses                                             | OpenAI key and account-supported model identifier                                          |
 | Instinct        | Manual authenticated import bridge                                                                                | Native provider API not verified                                                           |
 | Silvia          | Manual authenticated import bridge                                                                                | Direct product URL/API access; supplied Substack redirect unresolved                       |
 
@@ -49,9 +49,9 @@ Use `.env.example` for setting names. Configure production values as private run
 
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, optional `GOOGLE_CALENDAR_ID` (defaults to primary). Issue the refresh token through authorized Google OAuth setup with calendar.events.readonly. Frontend reauthorization is not implemented.
 - `SLACK_BOT_TOKEN`, `SLACK_CHANNEL_IDS` (comma separated). Bot needs channels:history and/or groups:history, as applicable, and membership of selected channels. Provider rate limits and retention apply.
-- `XAI_API_KEY`, `XAI_MODEL`. Select a supported model. Grok operations share selected workspace records with xAI.
+- `OPENAI_API_KEY`, `OPENAI_MODEL`. Select a supported model. OpenAI GPT operations share selected workspace records with OpenAI.
 
-Official references: [Google events](https://developers.google.com/workspace/calendar/api/v3/reference/events/list), [Google scopes](https://developers.google.com/workspace/calendar/api/auth), [Slack history](https://docs.slack.dev/reference/methods/conversations.history/), [xAI completions](https://docs.x.ai/developers/model-capabilities/legacy/chat-completions).
+Official references: [Google events](https://developers.google.com/workspace/calendar/api/v3/reference/events/list), [Google scopes](https://developers.google.com/workspace/calendar/api/auth), [Slack history](https://docs.slack.dev/reference/methods/conversations.history/), [OpenAI completions](https://developers.openai.com/api/docs/guides/text).
 
 ## Private access and persistence
 
@@ -105,3 +105,33 @@ pnpm test:api
 Contracts cover real dates, timezone conversion, UTC/escaped ICS round trips, UTF-8 folding, and recurrence rejection. API smoke tests run the compiled Worker with an isolated D1 database: CRUD/readback, conflicts, atomic validation, idempotency, cross-origin rejection, briefing updates, meeting prep, unconfigured services, and sample cleanup. They never touch production.
 
 Browser interaction/visual QA was unavailable in the authoring session. Types, build, calendar contracts, and actual Worker/D1 API checks were verified. Live provider authentication needs verification after credentials are configured.
+
+## Chief of Staff layer (ChatGPT)
+
+Adapted from the user-provided Visser Labs Chief of Staff Starter Pack. The Chief desk is now the primary entry point: one inbox, a persistent 16-question intake in four rounds, a reviewed answer sheet, ChatGPT instructions and first-assignment blocks, proof briefs, human ownership, proposed specialist lanes, and an unsent draft review queue. Unknown facts remain UNKNOWN; NONE is preserved. Document defaults are listed before review. No pricing, personnel, or priorities are inferred from sample data.
+
+- Review the answer sheet before Chief can answer requests or prepare drafts. Editing context invalidates proof, specialist, and morning readiness approvals.
+- Chief briefs use Need you / Ship-ready / Team / Ignore / Next, capped at twelve nonempty lines. Sample records are excluded.
+- Approve a useful manual proof brief before approving specialist lanes or morning readiness. This creates no independent bots or extra schedules.
+- Draft approval is recorded with a timestamp and remains unsent. Editing a draft resets approval. There is no send, publish, pay, book, hire, or external-delete tool.
+- Existing CEO briefing at 7 AM Eastern remains active. Proposed intake times do not silently change it. Chief morning readiness is distinct from scheduling. Scheduled Chief calls return quiet status when not approved, during parseable quiet hours, or when no actionable records exist. Quiet hours use exact HH:MM [AM/PM] to HH:MM [AM/PM] or 24-hour times; UNKNOWN cannot establish a quiet-hours window.
+
+### Use in ChatGPT
+
+The private Site plugin exposes authenticated tools through POST /mcp:
+
+| Tool                 | Capability                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------ |
+| chief_context        | Read reviewed instructions, source-scoped records, inbox history, draft status, and connection requirements. |
+| chief_record_request | Save a request in the Chief inbox; generate a local synthesis or optional GPT answer.                        |
+| chief_save_draft     | Save an unsent reply or document for executive review.                                                       |
+
+Discovery carries no private data. Data-bearing calls require the hosting platform's authenticated user identity; a userless service credential does not impersonate a ChatGPT visitor. Install/connect the private Site plugin before claiming live ChatGPT access. The app also exports a reviewed Markdown package for a private ChatGPT Project: Block A instructions, Block B first assignment, Block C specialist rules, Block D proposed routines, and a saved-record snapshot. No ChatGPT Project/custom GPT is automatically created. A snapshot is not live account access.
+
+Optional in-app generation uses the OpenAI Responses API with OPENAI_API_KEY / OPENAI_MODEL and store:false. This is distinct from a ChatGPT subscription and from the native Site plugin. Use the OpenAI Developers plugin to provision a key when available; no key was created or embedded during this update. The native ChatGPT tools and manual setup package do not require that key.
+
+### Source windows
+
+Gmail adapter: up to 50 messages from last 3 days, via separate GOOGLE_GMAIL_REFRESH_TOKEN with gmail.readonly and existing Google client ID/secret. Calendar: Chief context uses saved events for next 5 days. Slack: selected channels, last 7 days, up to 50/channel. No provider connection is implied before credentials and a successful sync. Rich HTML email bodies fall back to provider snippets; no HTML executes. Replies stay in the app's local draft queue.
+
+New API: GET /api/chief for desk state; POST /api/chief for intake, review, ask, brief, draft, approve/reject, and proof/specialist/morning readiness. Version checks protect edits and approvals. Schema uses existing versioned D1 record table; no destructive migration is required.

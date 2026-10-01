@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const p = z
       .object({ kind: z.enum(kinds), data: z.unknown() })
       .parse(await request.json());
-    if (p.kind === "settings")
+    if (["settings", "chief", "draft", "chief_request"].includes(p.kind))
       return Response.json(
         { error: "Use the existing profile." },
         { status: 400 },
@@ -56,6 +56,11 @@ export async function PATCH(request: Request) {
       return Response.json(
         { error: "Item no longer exists." },
         { status: 404 },
+      );
+    if (["chief", "draft", "chief_request"].includes(item.kind))
+      return Response.json(
+        { error: "Use the Chief desk workflow." },
+        { status: 400 },
       );
     return Response.json({ item: await update(item, p.data, p.version) });
   } catch (e) {

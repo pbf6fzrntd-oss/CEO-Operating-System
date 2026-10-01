@@ -2,6 +2,7 @@ import {
   integrationStatus,
   syncGoogle,
   syncSlack,
+  syncGmail,
   rememberSync,
 } from "../../../lib/integrations";
 import { checkMutation, failure, db } from "../../../lib/store";
@@ -28,12 +29,17 @@ export async function POST(request: Request) {
   try {
     checkMutation(request);
     const { provider } = (await request.json()) as { provider: string };
-    if (!["google", "slack"].includes(provider))
+    if (!["google", "slack", "gmail"].includes(provider))
       return Response.json(
         { error: "This provider does not support sync." },
         { status: 400 },
       );
-    const r = provider === "google" ? await syncGoogle() : await syncSlack();
+    const r =
+      provider === "google"
+        ? await syncGoogle()
+        : provider === "gmail"
+          ? await syncGmail()
+          : await syncSlack();
     await rememberSync(provider, r.message);
     return Response.json(r);
   } catch (e) {

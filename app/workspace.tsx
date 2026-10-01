@@ -51,7 +51,9 @@ import {
   dayOffset,
   localDateTime,
 } from "../lib/model";
+import ChiefDesk from "./chief-desk";
 const views = [
+  { id: "chief", label: "Chief of Staff", icon: Sparkles },
   { id: "today", label: "Today", icon: Sun },
   { id: "tasks", label: "Priorities", icon: CircleCheck },
   { id: "calendar", label: "Calendar", icon: CalendarDays },
@@ -147,7 +149,7 @@ export default function Workspace() {
   const [items, setItems] = useState<Item[]>([]),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
-    [view, setView] = useState("today"),
+    [view, setView] = useState("chief"),
     [query, setQuery] = useState(""),
     [command, setCommand] = useState(false),
     [mobile, setMobile] = useState(false),
@@ -466,6 +468,7 @@ export default function Workspace() {
     );
   }
   const heading: any = {
+    chief: "Your executive desk.",
     today: "Your day, with intention.",
     tasks: "Make the important happen.",
     calendar: "Own your time.",
@@ -517,7 +520,7 @@ export default function Workspace() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <button className="assistant-card" onClick={() => setAgent(true)}>
+          <button className="assistant-card" onClick={() => navigate("chief")}>
             <span className="ai-symbol">
               <Sparkles size={18} />
             </span>
@@ -686,6 +689,13 @@ export default function Workspace() {
                     Start with your own data <ChevronRight size={14} />
                   </button>
                 </div>
+              )}
+              {view === "chief" && (
+                <ChiefDesk
+                  onRefresh={() =>
+                    void api("/api/workspace").then((d) => setItems(d.items))
+                  }
+                />
               )}
               {view === "today" && (
                 <>
@@ -1207,14 +1217,16 @@ export default function Workspace() {
                       <Sparkles size={18} />
                       <div>
                         <strong>
-                          {connections.find((c) => c.id === "grok")?.configured
-                            ? "Powered by Grok"
+                          {connections.find((c) => c.id === "openai")
+                            ?.configured
+                            ? "Powered by OpenAI GPT"
                             : "Workspace synthesis"}
                         </strong>
                         <small>
-                          {connections.find((c) => c.id === "grok")?.configured
+                          {connections.find((c) => c.id === "openai")
+                            ?.configured
                             ? "AI uses your saved workspace context."
-                            : "Connect Grok for AI-generated commentary."}
+                            : "Connect OpenAI GPT for AI-generated commentary."}
                         </small>
                       </div>
                     </div>
@@ -1299,7 +1311,7 @@ export default function Workspace() {
                               <CalendarDays size={24} />
                             ) : c.id === "slack" ? (
                               <MessageSquare size={24} />
-                            ) : c.id === "grok" ? (
+                            ) : c.id === "openai" ? (
                               <Sparkles size={24} />
                             ) : (
                               <Link2 size={24} />
@@ -1350,7 +1362,7 @@ export default function Workspace() {
                             </button>
                           )}
                           {c.configured &&
-                            ["google", "slack"].includes(c.id) && (
+                            ["google", "slack", "gmail"].includes(c.id) && (
                               <button
                                 className="btn gold"
                                 disabled={busy}
@@ -1583,9 +1595,9 @@ export default function Workspace() {
                       include the latest records.
                     </p>
                     <p className="helper">
-                      A private daily refresh runs at 7:00 a.m. America/New_York.
-                      Briefings also refresh on opening or on demand.
-                      Automatic Slack delivery is not enabled.
+                      A private daily refresh runs at 7:00 a.m.
+                      America/New_York. Briefings also refresh on opening or on
+                      demand. Automatic Slack delivery is not enabled.
                     </p>
                   </section>
                 </>
@@ -1878,10 +1890,11 @@ export default function Workspace() {
                 channel.
               </p>
             )}
-            {setup.id === "grok" && (
+            {setup.id === "openai" && (
               <p className="helper">
-                Set the model identifier available to your xAI account.
-                Generating a response sends selected workspace records to xAI.
+                Set the model identifier available to your OpenAI API account.
+                Generating a response sends selected workspace records to
+                OpenAI.
               </p>
             )}
             <Pill tone={setup.configured ? "mint" : "neutral"}>
@@ -1980,9 +1993,9 @@ export default function Workspace() {
           <div className="agent-body">
             <div className="agent-note">
               <Sparkles size={17} />
-              {connections.find((c) => c.id === "grok")?.configured
-                ? "Grok · Uses your workspace context"
-                : "Workspace synthesis · Connect Grok for tailored AI answers"}
+              {connections.find((c) => c.id === "openai")?.configured
+                ? "OpenAI GPT · Uses your workspace context"
+                : "Workspace synthesis · Connect OpenAI GPT for tailored AI answers"}
             </div>
             {!chat.length && (
               <div className="agent-suggestions">
