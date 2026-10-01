@@ -1583,9 +1583,9 @@ export default function Workspace() {
                       include the latest records.
                     </p>
                     <p className="helper">
-                      Briefings refresh on opening or on demand. Unattended
-                      scheduling and Slack delivery require connected accounts
-                      and a verified service access path.
+                      A private daily refresh runs at 7:00 a.m. America/New_York.
+                      Briefings also refresh on opening or on demand.
+                      Automatic Slack delivery is not enabled.
                     </p>
                   </section>
                 </>

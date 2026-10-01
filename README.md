@@ -27,7 +27,7 @@ A working single-owner executive workspace with a midnight interface, brass acce
 | Instinct        | Manual authenticated import bridge                                                                                | Native provider API not verified                                                           |
 | Silvia          | Manual authenticated import bridge                                                                                | Direct product URL/API access; supplied Substack redirect unresolved                       |
 
-No provider credentials were available during implementation. Live provider calls are not verified. Status distinguishes configuration from last successful sync. Thread expansion, automatic DMs, two-way calendar writes, provider OAuth consent screens, autonomous agent execution, and unattended briefing delivery are not activated. Daily refresh runs on opening, not while closed.
+No provider credentials were available during implementation. Live provider calls are not verified. Status distinguishes configuration from last successful sync. Thread expansion, automatic DMs, two-way calendar writes, provider OAuth consent screens, autonomous agent execution, and automatic message delivery are not activated. A private cloud task refreshes the saved briefing daily at 7:00 a.m. America/New_York while the app is closed, syncing Google and Slack only when configured. The authenticated writer and readback were verified against the published workspace. Briefings also refresh on first opening and on demand. No email or Slack delivery is scheduled.
 
 ## Local setup
 
