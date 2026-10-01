@@ -24,6 +24,7 @@ import {
   normalizedAnswers,
 } from "../lib/chief";
 import { type Item } from "../lib/model";
+import ChiefToday from "./chief-today";
 async function api(body?: any) {
   const r = await fetch("/api/chief", {
     method: body ? "POST" : "GET",
@@ -43,7 +44,7 @@ function download(name: string, text: string) {
 }
 export default function ChiefDesk({ onRefresh }: { onRefresh: () => void }) {
   const [state, setState] = useState<any>(null),
-    [tab, setTab] = useState("Inbox"),
+    [tab, setTab] = useState("Today"),
     [round, setRound] = useState(0),
     [answers, setAnswers] = useState<string[]>(Array(16).fill("")),
     [review, setReview] = useState(false),
@@ -110,7 +111,15 @@ export default function ChiefDesk({ onRefresh }: { onRefresh: () => void }) {
     )[0],
     pending = state.drafts.filter((d: Item) => d.data.status === "Draft"),
     sheet = answerSheet(normalizedAnswers(answers));
-  const tabs = ["Inbox", "Setup", "Drafts", "Roster", "Routines", "ChatGPT"];
+  const tabs = [
+    "Today",
+    "Inbox",
+    "Setup",
+    "Drafts",
+    "Roster",
+    "Routines",
+    "ChatGPT",
+  ];
   async function bundle() {
     const r = await fetch("/api/workspace");
     const data: any = await r.json();
@@ -182,6 +191,7 @@ export default function ChiefDesk({ onRefresh }: { onRefresh: () => void }) {
           </button>
         </p>
       )}
+      {tab === "Today" && <ChiefToday state={state} busy={busy} act={act} />}
       {tab === "Setup" && (
         <section className="panel chief-setup">
           <div className="section-title">
@@ -830,8 +840,9 @@ export default function ChiefDesk({ onRefresh }: { onRefresh: () => void }) {
             <h2>Connect the private Chief plugin.</h2>
             <p>
               After installing the Site’s private plugin, ask ChatGPT to read
-              Chief context. ChatGPT can save your request and unsent drafts
-              into this desk. Review and approval stay here.
+              Chief context. ChatGPT can save its answers, manage tasks and
+              OpenLoops, prepare meetings, and save unsent drafts into this
+              desk. Review and approval stay here.
             </p>
             <p className="helper">
               Connection is a separate install/connect step. The prototype has

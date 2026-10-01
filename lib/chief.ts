@@ -72,7 +72,12 @@ export function setupBlocks(answers: string[]) {
   ];
 }
 export function chiefContext(items: Item[], answers: string[]) {
-  const tz = answers[2] === "UNKNOWN" ? "America/New_York" : answers[2];
+  let tz = answers[2] === "UNKNOWN" ? "America/New_York" : answers[2];
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: tz });
+  } catch {
+    tz = "America/New_York";
+  }
   let day: string;
   try {
     day = today(tz);
@@ -82,6 +87,8 @@ export function chiefContext(items: Item[], answers: string[]) {
   const real = items.filter((i) => !i.data.demo);
   return {
     day,
+    timezone: tz,
+    capturedAt: new Date().toISOString(),
     answerSheet: answerSheet(answers),
     sources: {
       gmail: "Imported or synced Gmail records from last 3 days only",
@@ -119,7 +126,14 @@ export function chiefBrief(items: Item[], answers: string[]) {
     drafts = real.filter(
       (i) => i.kind === "draft" && i.data.status === "Draft",
     );
-  const needs = loops.filter((i) => i.data.due <= day).slice(0, 3);
+  const decisions = real.filter(
+    (i) =>
+      i.kind === "decision" && i.data.status !== "Decided" && i.data.due <= day,
+  );
+  const needs = [...decisions, ...loops.filter((i) => i.data.due <= day)].slice(
+    0,
+    3,
+  );
   const priorityLines = answers[5]
     .split(/\n|;/)
     .map((s) => s.trim())
@@ -129,7 +143,10 @@ export function chiefBrief(items: Item[], answers: string[]) {
     `Need you: ${
       needs.length
         ? needs
-            .map((i) => `${i.data.owner}: ${i.data.title} (due ${i.data.due})`)
+            .map(
+              (i) =>
+                `${i.kind === "decision" ? "Decide" : i.data.owner}: ${i.data.title} (due ${i.data.due})`,
+            )
             .join("; ")
         : tasks
             .slice(0, 3)
@@ -167,6 +184,8 @@ export function quietNow(answers: string[], now = new Date()) {
   if (!m) return false;
   const convert = (h: string, min: string, amp?: string) => {
     let hour = Number(h);
+    if (Number(min) > 59 || (amp ? hour < 1 || hour > 12 : hour > 23))
+      return NaN;
     if (amp) {
       hour = (hour % 12) + (amp.toUpperCase() === "PM" ? 12 : 0);
     }
@@ -174,6 +193,7 @@ export function quietNow(answers: string[], now = new Date()) {
   };
   const start = convert(m[1], m[2], m[3]),
     end = convert(m[4], m[5], m[6]);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
   let p;
   try {
     p = new Intl.DateTimeFormat("en", {
@@ -198,6 +218,9 @@ export function deskQuiet(items: Item[], answers: string[]) {
       (i.kind === "task" && !i.data.done && i.data.due <= context.day) ||
       (i.kind === "loop" &&
         i.data.status === "Waiting" &&
+        i.data.due <= context.day) ||
+      (i.kind === "decision" &&
+        i.data.status !== "Decided" &&
         i.data.due <= context.day) ||
       (i.kind === "draft" && i.data.status === "Draft") ||
       i.kind === "meeting" ||

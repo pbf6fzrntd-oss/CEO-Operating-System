@@ -7,6 +7,8 @@ import {
   saveDraft,
   approveDraft,
   approveChiefStage,
+  saveChiefRecord,
+  prepareChiefMeeting,
 } from "../../../lib/chief-service";
 import { failure, checkMutation } from "../../../lib/store";
 export async function GET() {
@@ -34,11 +36,14 @@ export async function POST(request: Request) {
           "proof",
           "specialists",
           "morning",
+          "record",
+          "prep",
         ]),
         answers: z.array(z.string().max(4000)).length(16).optional(),
         version: z.number().int().positive().optional(),
         id: z.string().optional(),
         question: z.string().trim().min(1).max(4000).optional(),
+        kind: z.enum(["task", "loop", "decision"]).optional(),
         data: z.record(z.unknown()).optional(),
         scheduled: z.boolean().optional(),
       })
@@ -59,6 +64,19 @@ export async function POST(request: Request) {
     if (p.action === "draft") {
       if (!p.data) throw new Error("Draft content is required.");
       return Response.json({ item: await saveDraft(p.data, p.id, p.version) });
+    }
+    if (p.action === "record") {
+      if (!p.kind || !p.data)
+        throw new Error("Record kind and data are required.");
+      return Response.json({
+        item: await saveChiefRecord(p.kind, p.data, p.id, p.version),
+        executed: false,
+      });
+    }
+    if (p.action === "prep") {
+      if (!p.id || !p.version)
+        throw new Error("Meeting and current version are required.");
+      return Response.json(await prepareChiefMeeting(p.id, p.version));
     }
     if (!p.version) throw new Error("Current version is required.");
     if (p.action === "approve" || p.action === "reject") {

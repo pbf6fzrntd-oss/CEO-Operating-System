@@ -1,8 +1,74 @@
 import { z } from "zod";
-import { chiefSnapshot, chiefAsk, saveDraft } from "../../lib/chief-service";
+import {
+  chiefSnapshot,
+  chiefAsk,
+  saveDraft,
+  saveChiefRecord,
+  prepareChiefMeeting,
+} from "../../lib/chief-service";
 import { all } from "../../lib/store";
 import { chiefContext, chiefInstructions } from "../../lib/chief";
 const tools = [
+  {
+    name: "chief_save_record",
+    description:
+      "Create or update a confirmed local task, OpenLoop, or decision in the CEO desk. Read chief_context first for current IDs/versions. Updates require id and version and cannot change record kind. No messages, calendar bookings, or external actions. Supply only confirmed dates/owners; ask when missing.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["task", "loop", "decision"] },
+        id: { type: "string" },
+        version: { type: "integer", minimum: 1 },
+        data: {
+          type: "object",
+          properties: {
+            title: { type: "string", maxLength: 240 },
+            due: { type: "string", description: "Confirmed date YYYY-MM-DD" },
+            notes: { type: "string", maxLength: 16000 },
+            priority: { type: "string", enum: ["High", "Medium", "Low"] },
+            category: { type: "string" },
+            done: { type: "boolean" },
+            owner: { type: "string" },
+            status: {
+              type: "string",
+              enum: ["Waiting", "Received", "Considering", "Decided", "Review"],
+            },
+            channel: { type: "string" },
+            options: { type: "string" },
+            rationale: { type: "string" },
+          },
+          additionalProperties: false,
+        },
+      },
+      required: ["kind", "data"],
+      additionalProperties: false,
+    },
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
+  {
+    name: "chief_meeting_prep",
+    description:
+      "Save a ChatGPT-composed prep document to a confirmed meeting, or generate one from confirmed context. Read chief_context first, use exact meeting ID/version, and exclude sample facts. Saving prep does not change calendar bookings or contact participants.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        version: { type: "integer", minimum: 1 },
+        content: { type: "string", minLength: 1, maxLength: 24000 },
+      },
+      required: ["id", "version"],
+      additionalProperties: false,
+    },
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+  },
   {
     name: "chief_context",
     description:
@@ -17,11 +83,18 @@ const tools = [
   {
     name: "chief_record_request",
     description:
-      "Save an executive request in the Chief inbox. The response is a local draft/synthesis, not an executed action. Requires reviewed intake.",
+      "Save an executive request and optionally your ChatGPT-composed answer in the Chief inbox. Without answer, generates local synthesis or optional API response. Requires reviewed intake. No execution.",
     inputSchema: {
       type: "object",
       properties: {
         question: { type: "string", minLength: 1, maxLength: 4000 },
+        answer: {
+          type: "string",
+          minLength: 1,
+          maxLength: 24000,
+          description:
+            "Optional answer composed in ChatGPT using the reviewed context. Save it to preserve the conversation in Chief.",
+        },
       },
       required: ["question"],
       additionalProperties: false,
@@ -100,12 +173,34 @@ export async function POST(request: Request) {
           ? chiefInstructions(state.chief.data.answers)
           : "Complete and review the 16-question intake in the Chief desk first. Do not invent missing context.",
       };
-    } else if (name === "chief_record_request")
-      result = await chiefAsk(
-        z.object({ question: z.string().trim().min(1).max(4000) }).parse(args)
-          .question,
-      );
-    else if (name === "chief_save_draft") {
+    } else if (name === "chief_save_record") {
+      const p = z
+        .object({
+          kind: z.enum(["task", "loop", "decision"]),
+          data: z.record(z.unknown()),
+          id: z.string().optional(),
+          version: z.number().int().positive().optional(),
+        })
+        .parse(args);
+      result = await saveChiefRecord(p.kind, p.data, p.id, p.version);
+    } else if (name === "chief_meeting_prep") {
+      const p = z
+        .object({
+          id: z.string(),
+          version: z.number().int().positive(),
+          content: z.string().min(1).max(24000).optional(),
+        })
+        .parse(args);
+      result = await prepareChiefMeeting(p.id, p.version, p.content);
+    } else if (name === "chief_record_request") {
+      const p = z
+        .object({
+          question: z.string().trim().min(1).max(4000),
+          answer: z.string().trim().min(1).max(24000).optional(),
+        })
+        .parse(args);
+      result = await chiefAsk(p.question, p.answer);
+    } else if (name === "chief_save_draft") {
       const parsed = z
         .object({
           title: z.string().trim().min(1).max(240),

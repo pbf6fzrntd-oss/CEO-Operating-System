@@ -14,6 +14,7 @@ import {
   chiefContext,
 } from "../../../lib/chief";
 import { today } from "../../../lib/model";
+import { prepareChiefMeeting } from "../../../lib/chief-service";
 export async function POST(request: Request) {
   try {
     checkMutation(request);
@@ -96,13 +97,16 @@ export async function POST(request: Request) {
       const meeting = items.find((i) => i.id === p.id && i.kind === "meeting");
       if (!meeting)
         return Response.json({ error: "Select a meeting." }, { status: 400 });
+      if (reviewed && !meeting.data.demo) {
+        return Response.json(await prepareChiefMeeting(meeting.id, meeting.version));
+      }
       const names = meeting.data.attendees.toLowerCase();
       const related = loops.filter((l) =>
-        names.includes(l.data.owner.toLowerCase()),
+        Boolean(l.data.demo) === Boolean(meeting.data.demo) && names.includes(l.data.owner.toLowerCase()),
       );
       const generated = await openai(
         "Prepare a concise meeting brief with objective, agenda, relevant commitments, questions, decisions needed, and follow-up template. Do not invent participant backgrounds.",
-        { meeting, related, tasks },
+        { meeting, related, tasks: tasks.filter(i => Boolean(i.data.demo) === Boolean(meeting.data.demo)) },
       );
       engine = generated ? "OpenAI GPT" : "Workspace synthesis";
       content =

@@ -339,3 +339,15 @@ export async function syncGmail() {
     message: `Synced ${saved.length} Gmail messages from the last 3 days${list.nextPageToken ? " (latest 50; more messages exist)" : ""}.`,
   };
 }
+
+export async function integrationConnections() {
+  return Promise.all(
+    integrationStatus().map(async (integration) => {
+      const row = await db()
+        .prepare("SELECT payload FROM records WHERE id=?")
+        .bind(`sync-${integration.id}`)
+        .first<{ payload: string }>();
+      return { ...integration, ...(row ? JSON.parse(row.payload) : {}) };
+    }),
+  );
+}

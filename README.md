@@ -123,7 +123,9 @@ The private Site plugin exposes authenticated tools through POST /mcp:
 | Tool                 | Capability                                                                                                   |
 | -------------------- | ------------------------------------------------------------------------------------------------------------ |
 | chief_context        | Read reviewed instructions, source-scoped records, inbox history, draft status, and connection requirements. |
-| chief_record_request | Save a request in the Chief inbox; generate a local synthesis or optional GPT answer.                        |
+| chief_record_request | Save a request and optional ChatGPT-composed answer in the Chief inbox; otherwise use local synthesis or optional GPT.                        |
+| chief_save_record    | Create/update local tasks, OpenLoops, and decisions with confirmed dates and owners; version checks required for edits. |
+| chief_meeting_prep   | Save a ChatGPT-composed prep document to a confirmed meeting or generate one from saved facts; no calendar writes. |
 | chief_save_draft     | Save an unsent reply or document for executive review.                                                       |
 
 Discovery carries no private data. Data-bearing calls require the hosting platform's authenticated user identity; a userless service credential does not impersonate a ChatGPT visitor. Install/connect the private Site plugin before claiming live ChatGPT access. The app also exports a reviewed Markdown package for a private ChatGPT Project: Block A instructions, Block B first assignment, Block C specialist rules, Block D proposed routines, and a saved-record snapshot. No ChatGPT Project/custom GPT is automatically created. A snapshot is not live account access.
@@ -135,3 +137,10 @@ Optional in-app generation uses the OpenAI Responses API with OPENAI_API_KEY / O
 Gmail adapter: up to 50 messages from last 3 days, via separate GOOGLE_GMAIL_REFRESH_TOKEN with gmail.readonly and existing Google client ID/secret. Calendar: Chief context uses saved events for next 5 days. Slack: selected channels, last 7 days, up to 50/channel. No provider connection is implied before credentials and a successful sync. Rich HTML email bodies fall back to provider snippets; no HTML executes. Replies stay in the app's local draft queue.
 
 New API: GET /api/chief for desk state; POST /api/chief for intake, review, ask, brief, draft, approve/reject, and proof/specialist/morning readiness. Version checks protect edits and approvals. Schema uses existing versioned D1 record table; no destructive migration is required.
+
+
+### Chief working day
+
+The Today tab opens first after intake review. It shows confirmed tasks due today/overdue, outstanding OpenLoops ordered by date, and saved meetings over the next five days. Add tasks and OpenLoops, complete tasks, mark commitments received, generate/read/download meeting prep, and inspect configured providers with last-successful-sync metadata. Samples never appear in this view. Meeting documents use exact attendee-owner matches for commitments, preserve missing facts as UNKNOWN, and make no calendar/communication writes. Preparing a confirmed meeting from Calendar uses the same reviewed Chief context.
+
+ChatGPT can pass its composed answer to chief_record_request to preserve native ChatGPT work in the desk without requiring an API key. It can similarly save composed meeting prep via chief_meeting_prep. All tools require the Site's authenticated user identity and reviewed intake for mutations. Record edits reject stale versions, different kinds, and sample records; invalid dates and missing owners are rejected by the existing schema. Specialist routing remains Chief-only until specialist readiness is explicitly approved; lanes are still not autonomous bots.

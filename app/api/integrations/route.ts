@@ -1,22 +1,14 @@
 import {
-  integrationStatus,
+  integrationConnections,
   syncGoogle,
   syncSlack,
   syncGmail,
   rememberSync,
 } from "../../../lib/integrations";
-import { checkMutation, failure, db } from "../../../lib/store";
+import { checkMutation, failure } from "../../../lib/store";
 export async function GET() {
   try {
-    const integrations = await Promise.all(
-      integrationStatus().map(async (i) => {
-        const s = await db()
-          .prepare("SELECT payload FROM records WHERE id=?")
-          .bind(`sync-${i.id}`)
-          .first<{ payload: string }>();
-        return { ...i, ...(s ? JSON.parse(s.payload) : {}) };
-      }),
-    );
+    const integrations = await integrationConnections();
     return Response.json(
       { integrations },
       { headers: { "Cache-Control": "no-store" } },

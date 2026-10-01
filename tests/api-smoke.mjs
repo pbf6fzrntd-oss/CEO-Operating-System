@@ -153,43 +153,206 @@ try {
   let chief = (await request("/api/chief")).data.chief;
   r = await request("/api/chief", "POST", { action: "brief" });
   assert.notEqual(r.status, 200);
-  r = await request("/api/chief", "POST", { action: "review", version: chief.version, answers: chief.data.answers });
+  r = await request("/api/chief", "POST", {
+    action: "review",
+    version: chief.version,
+    answers: chief.data.answers,
+  });
   assert.equal(r.status, 200);
   chief = r.data.item;
-  r = await request("/api/chief", "POST", { action: "morning", version: chief.version });
+  r = await request("/api/chief", "POST", {
+    action: "morning",
+    version: chief.version,
+  });
   assert.notEqual(r.status, 200);
   r = await request("/api/chief", "POST", { action: "brief" });
   assert.equal(r.status, 200);
   assert.ok(r.data.item.data.content.split("\n").length <= 12);
-  r = await request("/api/chief", "POST", { action: "proof", version: chief.version });
+  r = await request("/api/chief", "POST", {
+    action: "proof",
+    version: chief.version,
+  });
   assert.equal(r.status, 200);
   chief = r.data.item;
-  r = await request("/api/chief", "POST", { action: "ask", question: "What needs my attention?" });
+  r = await request("/api/chief", "POST", {
+    action: "ask",
+    question: "What needs my attention?",
+  });
   assert.equal(r.status, 200);
   assert.ok((await request("/api/chief")).data.requests.length);
-  r = await request("/api/chief", "POST", { action: "draft", data: { title: "Unsent reply", body: "Please share the update.", channel: "Email" } });
+  r = await request("/api/chief", "POST", {
+    action: "draft",
+    data: {
+      title: "Unsent reply",
+      body: "Please share the update.",
+      channel: "Email",
+    },
+  });
   assert.equal(r.status, 200);
   let draft = r.data.item;
-  r = await request("/api/chief", "POST", { action: "approve", id: draft.id, version: draft.version });
+  r = await request("/api/chief", "POST", {
+    action: "approve",
+    id: draft.id,
+    version: draft.version,
+  });
   assert.equal(r.data.executed, false);
   draft = r.data.item;
-  r = await request("/api/chief", "POST", { action: "draft", id: draft.id, version: draft.version, data: { body: "Changed reply" } });
+  r = await request("/api/chief", "POST", {
+    action: "draft",
+    id: draft.id,
+    version: draft.version,
+    data: { body: "Changed reply" },
+  });
   assert.equal(r.data.item.data.status, "Draft");
   assert.equal(r.data.item.data.approvedAt, "");
-  r = await request("/api/chief", "POST", { action: "approve", id: draft.id, version: draft.version });
+  r = await request("/api/chief", "POST", {
+    action: "approve",
+    id: draft.id,
+    version: draft.version,
+  });
   assert.equal(r.status, 409);
-  r = await request("/mcp", "POST", { jsonrpc: "2.0", id: 1, method: "tools/list" });
-  assert.equal(r.data.result.tools.length, 3);
-  assert.ok(!r.data.result.tools.some(t => /send|approve|delete/.test(t.name)));
-  r = await request("/mcp", "POST", { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "chief_context" } });
+  r = await request("/mcp", "POST", {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/list",
+  });
+  assert.equal(r.data.result.tools.length, 5);
+  assert.ok(
+    !r.data.result.tools.some((t) => /send|approve|delete/.test(t.name)),
+  );
+  r = await request("/mcp", "POST", {
+    jsonrpc: "2.0",
+    id: 2,
+    method: "tools/call",
+    params: { name: "chief_context" },
+  });
   assert.equal(r.status, 401);
-  const authed = await mf.dispatchFetch("https://ceo.test/mcp", { method: "POST", headers: { "Content-Type": "application/json", "oai-authenticated-user-id": "isolated-test-user" }, body: JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "chief_context" } }) });
+  const authed = await mf.dispatchFetch("https://ceo.test/mcp", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "oai-authenticated-user-id": "isolated-test-user",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 3,
+      method: "tools/call",
+      params: { name: "chief_context" },
+    }),
+  });
   assert.equal((await authed.json()).result.isError, false);
-  r = await request("/api/chief", "POST", { action: "intake", version: chief.version, answers: chief.data.answers });
+  async function callTool(name, args) {
+    const response = await mf.dispatchFetch("https://ceo.test/mcp", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "oai-authenticated-user-id": "isolated-test-user",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 4,
+        method: "tools/call",
+        params: { name, arguments: args },
+      }),
+    });
+    const payload = await response.json();
+    return payload.result;
+  }
+  let toolResult = await callTool("chief_save_record", {
+    kind: "loop",
+    data: { title: "Forecast due", owner: "Alex", due: "2026-10-02" },
+  });
+  assert.equal(toolResult.isError, false);
+  const savedLoop = JSON.parse(toolResult.content[0].text);
+  toolResult = await callTool("chief_save_record", {
+    kind: "loop",
+    id: savedLoop.id,
+    version: savedLoop.version,
+    data: { status: "Received" },
+  });
+  assert.equal(JSON.parse(toolResult.content[0].text).data.status, "Received");
+  toolResult = await callTool("chief_save_record", {
+    kind: "loop",
+    id: savedLoop.id,
+    version: savedLoop.version,
+    data: { status: "Waiting" },
+  });
+  assert.equal(toolResult.isError, true);
+  toolResult = await callTool("chief_save_record", {
+    kind: "task",
+    id: savedLoop.id,
+    version: 2,
+    data: { title: "Wrong kind" },
+  });
+  assert.equal(toolResult.isError, true);
+  toolResult = await callTool("chief_save_record", {
+    kind: "task",
+    data: { title: "Bad date", due: "2026-02-30" },
+  });
+  assert.equal(toolResult.isError, true);
+  toolResult = await callTool("chief_record_request", {
+    question: "Draft a plan",
+    answer: "A tailored plan saved from ChatGPT.",
+  });
+  const savedAnswer = JSON.parse(toolResult.content[0].text);
+  assert.equal(savedAnswer.data.answer, "A tailored plan saved from ChatGPT.");
+  assert.equal(savedAnswer.data.source, "ChatGPT");
+  assert.equal(savedAnswer.data.lane, "Chief");
+  const confirmedMeeting = (await request("/api/workspace")).data.items.find(
+    (i) => i.kind === "meeting" && !i.data.demo,
+  );
+  toolResult = await callTool("chief_meeting_prep", {
+    id: confirmedMeeting.id,
+    version: confirmedMeeting.version,
+    content: "# Confirmed meeting prep\nDecision: Review the forecast.",
+  });
+  assert.equal(toolResult.isError, false);
+  assert.match(
+    JSON.parse(toolResult.content[0].text).item.data.prep,
+    /Confirmed meeting prep/,
+  );
+  toolResult = await callTool("chief_meeting_prep", {
+    id: confirmedMeeting.id,
+    version: confirmedMeeting.version,
+  });
+  assert.equal(toolResult.isError, true);
+  const freshMeeting = (await request("/api/workspace")).data.items.find(
+    (i) => i.id === confirmedMeeting.id,
+  );
+  r = await request("/api/chief", "POST", {
+    action: "prep",
+    id: freshMeeting.id,
+    version: freshMeeting.version,
+  });
+  assert.equal(r.status, 200);
+  assert.match(r.data.content, /Objective/);
+  r = await request("/api/chief", "POST", {
+    action: "record",
+    kind: "task",
+    data: { title: "Chief action", due: "2026-10-01" },
+  });
+  assert.equal(r.status, 200);
+  const chiefTask = r.data.item;
+  r = await request("/api/chief", "POST", {
+    action: "record",
+    kind: "task",
+    id: chiefTask.id,
+    version: chiefTask.version,
+    data: { done: true },
+  });
+  assert.equal(r.data.item.data.done, true);
+  const snapshot = (await request("/api/chief")).data;
+  assert.ok(snapshot.work.records.some((i) => i.id === savedLoop.id));
+  assert.ok(!snapshot.work.records.some((i) => i.data.demo));
+  r = await request("/api/chief", "POST", {
+    action: "intake",
+    version: chief.version,
+    answers: chief.data.answers,
+  });
   assert.equal(r.data.item.data.firstBriefApproved, false);
   assert.equal(r.data.item.data.reviewed, false);
   console.log(
-    "PASS: actual Worker/D1 CRUD, persistent reload, update conflict, atomic imports, idempotency, cross-origin rejection, briefings, prep, connection states, sample cleanup, Chief review gates, persistent inbox, draft approval/reset/conflicts, and MCP identity checks.",
+    "PASS: actual Worker/D1 CRUD, persistent reload, update conflict, atomic imports, idempotency, cross-origin rejection, briefings, prep, connection states, sample cleanup, Chief review gates, persistent inbox, draft approval/reset/conflicts, MCP identity checks, ChatGPT answer persistence, local record kind/date/conflict checks, and saved meeting prep.",
   );
 } finally {
   await mf.dispose();
